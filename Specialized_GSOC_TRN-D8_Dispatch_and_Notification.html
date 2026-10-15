@@ -1,0 +1,1114 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GSOC-TRN-D8 · Dispatch, 911, and the client</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@300;500;700&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap');
+
+:root{
+  --ink:#0A0C12;
+  --panel:#141822;
+  --panel-2:#1C2230;
+  --line:#2A3242;
+  --line-soft:#1F2633;
+  --bone:#E8EAEF;
+  --muted:#92989B;
+  --prism:#512FFF;
+  --prism-deep:#3F1DF8;
+  --crimson:#C8283C;
+  --amber:#F0B429;
+  --green:#4FBF8B;
+  --display:"Oswald","Arial Narrow",Haettenschweiler,Impact,sans-serif;
+  --body:"Spectral",Iowan Old Style,"Palatino Linotype",Georgia,serif;
+  --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ink);
+  background-image:radial-gradient(rgba(255,255,255,.04) 1px, transparent 1px);
+  background-size:7px 7px;
+  color:var(--bone);
+  font-family:var(--body);
+  font-size:16px;
+  line-height:1.6;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 18px 90px}
+
+/* ---------- masthead ---------- */
+header.mast{border-bottom:2px solid var(--line);padding:34px 0 20px;margin-bottom:6px}
+.filetag{
+  font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--muted);display:flex;flex-wrap:wrap;gap:14px;align-items:center;
+}
+.filetag b{color:var(--prism);font-weight:500}
+.trio{width:22px;height:20px;flex:0 0 auto;stroke:var(--prism);fill:none}
+h1.title{
+  font-family:var(--display);font-weight:700;text-transform:uppercase;
+  font-size:clamp(34px,7.4vw,70px);line-height:.94;letter-spacing:-.01em;margin:14px 0 6px;
+}
+h1.title .a{color:var(--prism)}
+h1.title .tagbox{
+  display:inline-block;font-size:.34em;vertical-align:middle;
+  color:var(--ink);background:var(--bone);padding:2px 9px;margin:0 10px 0 0;transform:rotate(-4deg);
+}
+.dek{color:var(--muted);max-width:66ch;font-size:15px}
+.srcline{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--muted);margin-top:12px}
+.srcline b{color:var(--bone);font-weight:500}
+
+/* ---------- nav ---------- */
+nav.tabs{
+  position:sticky;top:0;z-index:40;background:rgba(10,12,18,.94);
+  backdrop-filter:blur(6px);border-bottom:1px solid var(--line);
+  display:flex;gap:2px;overflow-x:auto;margin:0 -18px 26px;padding:0 18px;scrollbar-width:none;
+}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{
+  flex:0 0 auto;background:none;border:0;border-bottom:3px solid transparent;
+  color:var(--muted);font-family:var(--display);text-transform:uppercase;
+  letter-spacing:.12em;font-size:13px;font-weight:500;padding:16px 14px;cursor:pointer;
+}
+nav.tabs button:hover{color:var(--bone)}
+nav.tabs button[aria-selected="true"]{color:var(--bone);border-bottom-color:var(--prism)}
+nav.tabs button .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-left:7px;opacity:0;transition:opacity .2s}
+nav.tabs button.done .dot{opacity:1}
+
+/* ---------- progress ---------- */
+.progress{display:flex;align-items:center;gap:12px;margin:0 0 28px;font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
+.bar{flex:1;height:6px;background:var(--panel-2);position:relative;overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;width:0;background:linear-gradient(90deg,var(--prism-deep),var(--prism));transition:width .45s ease}
+
+/* ---------- generic ---------- */
+section.view{display:none;animation:fade .3s ease}
+section.view.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+h2{font-family:var(--display);text-transform:uppercase;letter-spacing:.04em;font-size:clamp(24px,4vw,34px);font-weight:700;margin:0 0 4px}
+h3{font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;font-size:17px;font-weight:500;margin:34px 0 12px;color:var(--bone)}
+.sub{color:var(--muted);font-size:14px;margin:0 0 24px;max-width:70ch}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--prism)}
+.eyebrow.alt{color:var(--amber)}
+.panel{background:var(--panel);border:1px solid var(--line);padding:20px}
+.hint{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.btn{font-family:var(--display);text-transform:uppercase;letter-spacing:.12em;font-size:13px;background:var(--bone);color:var(--ink);border:0;padding:11px 20px;cursor:pointer;font-weight:500}
+.btn:hover{background:var(--prism);color:#fff}
+.btn.ghost{background:none;color:var(--bone);border:1px solid var(--line)}
+.btn.ghost:hover{background:var(--panel-2);color:var(--bone)}
+.btn.danger:hover{background:var(--crimson);color:#fff}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+input[type=text]{background:var(--panel-2);border:1px solid var(--line);color:var(--bone);padding:10px 12px;font-family:var(--mono);font-size:13px;min-width:0}
+input[type=text]:focus{outline:2px solid var(--prism);outline-offset:1px}
+:focus-visible{outline:2px solid var(--prism);outline-offset:2px}
+.sopref{font-family:var(--mono);font-size:.86em;color:var(--prism);white-space:nowrap}
+.ctrl{border-left:3px solid var(--prism);background:var(--panel-2);padding:14px 16px;margin:18px 0}
+.ctrl .lab{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--prism);display:block;margin-bottom:6px}
+.ctrl p{margin:0;font-size:15px}
+
+/* ---------- ledger ---------- */
+.ledger{border-top:1px solid var(--line)}
+.row{border-bottom:1px solid var(--line);padding:14px 0}
+.row .label{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.cell{padding:12px 14px;background:var(--panel);border-left:3px solid var(--prism);font-size:15px}
+.cell.b{border-left-color:var(--muted)}
+.cell.b.neg{border-left-color:var(--crimson)}
+.cell .who{font-family:var(--display);text-transform:uppercase;letter-spacing:.14em;font-size:11px;color:var(--prism);display:block;margin-bottom:5px}
+.cell.b .who{color:var(--muted)}
+.cell.b.neg .who{color:var(--crimson)}
+.reveal{cursor:pointer;position:relative}
+.reveal .masked{color:transparent;background:var(--panel-2);user-select:none}
+.reveal .masked::after{content:"tap to reveal";position:absolute;inset:auto 14px 12px;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.reveal.open{cursor:default}
+
+/* ---------- gallery ---------- */
+.side-switch{display:flex;gap:0;margin:0 0 22px;border:1px solid var(--line);width:max-content;max-width:100%;flex-wrap:wrap}
+.side-switch button{background:none;border:0;color:var(--muted);font-family:var(--display);text-transform:uppercase;letter-spacing:.14em;font-size:12px;padding:12px 22px;cursor:pointer}
+.side-switch button.on{background:var(--prism);color:#fff}
+.side-switch button.on.alt{background:var(--amber);color:var(--ink)}
+.dossiers{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--prism);padding:16px;cursor:pointer;transition:transform .18s ease,border-color .18s}
+.card.alt{border-top-color:var(--amber)}
+.card:hover{transform:translateY(-3px);border-color:var(--muted)}
+.card .no{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.2em}
+.card .nm{font-family:var(--display);text-transform:uppercase;font-size:21px;font-weight:700;line-height:1.08;margin:6px 0 2px}
+.card .real{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em}
+.card .teaser{font-size:14px;color:var(--muted);margin-top:10px}
+.card .more{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--prism);margin-top:12px;display:block}
+.card.alt .more{color:var(--amber)}
+.card.read{border-color:var(--green)}
+
+.scrim{position:fixed;inset:0;background:rgba(4,5,9,.84);display:none;z-index:80;overflow-y:auto;padding:24px 14px}
+.scrim.on{display:block}
+.dossier{max-width:660px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-top:5px solid var(--prism);padding:24px;position:relative}
+.dossier.alt{border-top-color:var(--amber)}
+.dossier h4{font-family:var(--display);text-transform:uppercase;font-size:30px;margin:8px 0 2px;font-weight:700;line-height:1.02}
+.dossier .close{position:absolute;top:12px;right:12px;background:none;border:1px solid var(--line);color:var(--muted);width:34px;height:34px;cursor:pointer;font-size:18px;line-height:1}
+.dossier .close:hover{color:var(--bone);border-color:var(--bone)}
+.field{border-top:1px solid var(--line);padding:12px 0}
+.field .k{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.field .v{font-size:15px}
+.flap{margin-top:14px;border:1px dashed var(--line);padding:14px;cursor:pointer;background:var(--panel-2)}
+.flap .k{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--prism)}
+.flap .body{display:none;margin-top:8px;font-size:15px}
+.flap.open{border-style:solid;cursor:default}
+.flap.open .body{display:block}
+
+/* ---------- sort ---------- */
+.dnd-pool{display:flex;flex-wrap:wrap;gap:9px;min-height:56px;padding:14px;background:var(--panel);border:1px dashed var(--line);margin-bottom:18px}
+.chip{background:var(--panel-2);border:1px solid var(--line);padding:9px 13px;cursor:grab;font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;font-size:13px;user-select:none;max-width:100%}
+.chip:active{cursor:grabbing}
+.chip.picked{outline:2px solid var(--prism);outline-offset:2px}
+.chip.right{border-color:var(--green);color:var(--green)}
+.chip.wrong{border-color:var(--crimson);color:var(--crimson)}
+.bins{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.bin{background:var(--panel);border:2px dashed var(--line);padding:14px;min-height:150px}
+.bin.over{border-color:var(--prism);background:var(--panel-2)}
+.bin h5{font-family:var(--display);text-transform:uppercase;letter-spacing:.14em;font-size:13px;margin:0 0 4px;color:var(--prism)}
+.bin .bsub{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);margin-bottom:12px;text-transform:uppercase}
+.bin .drop{display:flex;flex-wrap:wrap;gap:9px}
+.feedback{margin-top:16px;padding:14px;border-left:3px solid var(--prism);background:var(--panel);font-size:15px;display:none}
+.feedback.on{display:block}
+.feedback.good{border-left-color:var(--green)}
+.feedback.bad{border-left-color:var(--crimson)}
+
+/* ---------- scenarios ---------- */
+.scen-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.scen-pick .card .nm{font-size:19px}
+.node{background:var(--panel);border:1px solid var(--line);padding:22px;margin-top:18px}
+.node .stage{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.node p.text{font-size:16px;margin:12px 0 20px}
+.choices{display:grid;gap:10px}
+.choice{text-align:left;background:var(--panel-2);border:1px solid var(--line);color:var(--bone);padding:14px 16px;cursor:pointer;font-family:var(--body);font-size:15px;line-height:1.45}
+.choice:hover{border-color:var(--prism)}
+.outcome{border-left:4px solid var(--amber);padding:18px;background:var(--panel-2);margin-top:16px}
+.outcome .verdict{font-family:var(--display);text-transform:uppercase;letter-spacing:.14em;font-size:15px;margin-bottom:8px;color:var(--amber)}
+.outcome.win{border-left-color:var(--green)}
+.outcome.win .verdict{color:var(--green)}
+.outcome.loss{border-left-color:var(--crimson)}
+.outcome.loss .verdict{color:var(--crimson)}
+.trail{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:14px;letter-spacing:.06em}
+
+/* ---------- quiz ---------- */
+.qhead{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:18px}
+.qhead .n{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase}
+.qtext{font-size:19px;line-height:1.4;margin:0 0 18px}
+.opts{display:grid;gap:10px}
+.opt{text-align:left;background:var(--panel);border:1px solid var(--line);color:var(--bone);padding:14px 16px;cursor:pointer;font-family:var(--body);font-size:15px;display:flex;gap:12px;align-items:flex-start}
+.opt:hover:not(:disabled){border-color:var(--prism)}
+.opt .ltr{font-family:var(--mono);font-size:12px;color:var(--muted);flex:0 0 auto;padding-top:2px}
+.opt.correct{border-color:var(--green);background:rgba(79,191,139,.09)}
+.opt.chosen-wrong{border-color:var(--crimson);background:rgba(200,40,60,.09)}
+.opt:disabled{cursor:default;opacity:.75}
+.opt.correct:disabled,.opt.chosen-wrong:disabled{opacity:1}
+.rationale{margin-top:14px;padding:16px;background:var(--panel-2);border-left:3px solid var(--muted);display:none}
+.rationale.on{display:block}
+.rationale .tag{font-family:var(--display);text-transform:uppercase;letter-spacing:.14em;font-size:13px;margin-bottom:8px}
+.rationale.right{border-left-color:var(--green)}
+.rationale.right .tag{color:var(--green)}
+.rationale.wrong{border-left-color:var(--crimson)}
+.rationale.wrong .tag{color:var(--crimson)}
+.rationale .why{font-size:15px;margin-bottom:10px}
+.rationale .miss{font-size:14px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
+.rationale .miss b{color:var(--bone);font-weight:600}
+.stamp{display:inline-block;border:3px solid var(--green);color:var(--green);font-family:var(--display);text-transform:uppercase;letter-spacing:.2em;font-size:22px;padding:8px 18px;transform:rotate(-6deg);margin:10px 0}
+.stamp.fail{border-color:var(--crimson);color:var(--crimson)}
+.scorewrap{text-align:center;padding:30px 10px}
+.bigscore{font-family:var(--display);font-size:64px;line-height:1;font-weight:700}
+
+/* ---------- records ---------- */
+table.rec{width:100%;border-collapse:collapse;font-size:14px}
+table.rec th{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.rec td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+table.rec tr:hover td{background:var(--panel)}
+.statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px}
+.stat{background:var(--panel);border:1px solid var(--line);padding:14px}
+.stat .k{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-family:var(--display);font-size:30px;line-height:1.1;margin-top:4px}
+.qbars{display:grid;gap:8px}
+.qbar{display:grid;grid-template-columns:1fr 68px;gap:12px;align-items:center;font-size:13px}
+.qbar .track{height:20px;background:var(--panel-2);position:relative}
+.qbar .track i{position:absolute;inset:0 auto 0 0}
+.qbar .track span{position:absolute;left:8px;top:0;line-height:20px;font-size:12px;color:var(--bone)}
+.qbar .pct{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:20px}
+textarea.csv{width:100%;height:170px;background:var(--panel-2);border:1px solid var(--line);color:var(--bone);font-family:var(--mono);font-size:11px;padding:12px;display:none}
+textarea.csv.on{display:block}
+.note{font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;letter-spacing:.04em}
+label.check{display:flex;gap:8px;align-items:center;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);cursor:pointer}
+footer.src{margin-top:60px;border-top:1px solid var(--line);padding-top:18px}
+
+.resume{display:none;border:1px solid var(--prism);border-left-width:4px;background:var(--panel);padding:14px 16px;margin:-8px 0 26px;align-items:center;gap:14px;flex-wrap:wrap}
+.resume.on{display:flex}
+.resume .t{flex:1;min-width:230px;font-size:15px}
+.resume .t b{font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;font-size:13px;display:block;color:var(--prism);margin-bottom:4px}
+#savedAt{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--muted);white-space:nowrap}
+.resumebar{border:1px dashed var(--prism);background:var(--panel-2);padding:14px 16px;margin-bottom:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+
+@media (max-width:640px){
+  .cols{grid-template-columns:1fr}
+  .dossiers{grid-template-columns:1fr}
+  h1.title .tagbox{display:block;width:max-content;margin:0 0 8px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+<header class="mast">
+  <div class="filetag">
+    <svg class="trio" viewBox="0 0 100 92" aria-hidden="true"><path d="M50 11 L89 79 L11 79 Z" stroke-width="16" stroke-linejoin="round"/></svg>
+    <span>Specialized GSOC</span>
+    <span>Module <b id="mcode"></b></span>
+    <span id="mtag"></span>
+    <span id="mest"></span>
+  </div>
+  <h1 class="title" id="mtitle"></h1>
+  <p class="dek" id="mdek"></p>
+  <p class="srcline" id="msrc"></p>
+</header>
+
+<nav class="tabs" role="tablist" id="tabs"></nav>
+
+<div class="progress">
+  <span>Progress</span>
+  <div class="bar"><i id="pbar"></i></div>
+  <span id="ptext">0%</span>
+  <span id="savedAt"></span>
+</div>
+
+<div class="resume" id="resume"></div>
+
+<section class="view" id="v-brief"></section>
+<section class="view" id="v-ledger"></section>
+<section class="view" id="v-gallery"></section>
+<section class="view" id="v-sort"></section>
+<section class="view" id="v-field"></section>
+<section class="view" id="v-quiz"></section>
+<section class="view" id="v-records"></section>
+
+<footer class="src">
+  <p class="note" id="mfoot"></p>
+</footer>
+</div>
+
+<div class="scrim" id="scrim"><div class="dossier" id="dossier"></div></div>
+<script>
+/* ============================ SPEC ============================ */
+const SPEC = {"id":"d8","code":"GSOC-TRN-D8","caseTag":"Day 8 of 10","est":"55 min","dayBox":"Day 8","title":["Dispatch, 911,","and the client"],"accentLine":1,"dek":"Three calls. One to an officer who is walking into something you can see and they cannot, one to a dispatcher who needs seven things in a particular order, and one to a client who will ask you a question you must not answer. Today is the densest day in the program. Work through it in any order, it saves itself as you go.","sources":"SOP-GSOC-010 · SOP-GSOC-011 · SOP-GSOC-012 · SOP-GSOC-003 · SOP-GSOC-018","certRef":"<span class=\"sopref\">SOP-GSOC-002</span>","qaRef":"<span class=\"sopref\">SOP-GSOC-015</span>","foot":"Module GSOC-TRN-D8, v0.1 draft, internal and operational. This is a training aid, not a controlled procedure. Where this module and a controlled SOP disagree, the SOP wins, every time. Program values that are not yet ratified appear as [CONFIRM] and are never scored. The GSOC Call Protocol documents are the working scripts for the role-plays on the floor.","brief":{"head":"Three calls, three different disciplines","sub":"Six parts, any order, no time limit. The officer brief is a safety control. The 911 call is a sequence. The client call is mostly about what you leave out. They are not interchangeable and the differences are where people come unstuck.","control":"Urgency is never communicated by a channel that does not guarantee an immediate human response. A time-critical matter is spoken, not written. Email is never used for an urgent or life-safety matter, ever. <span class=\"sopref\">SOP-GSOC-012</span>.","parts":[["The two calls","Ten elements compared across the officer brief and the emergency services call. One side of each row is hidden until you tap it."],["The file on the calls","Ten cards. Five on the officer call, five on the other two, each with a sealed section on what good sounds like."],["Say it or never say it","Twelve things you might be about to put into a call. Two files. Some of them are the whole reason this day exists."],["Field test","Three calls that go sideways: nobody answering, a scene you cannot read, and a client who wants a cause."],["Assessment","Twelve questions with a written justification for the right answer and for whichever wrong one you picked."],["Records","Every attempt, per-question accuracy, and a CSV for the competency record."]],"anchors":{"head":"Three lines to carry into every call","items":["<b>\"No weapon observed\" is not \"no weapon present.\"</b> State explicitly what has not been established, because the officer has to know which one they are being told. <span class=\"sopref\">SOP-GSOC-010</span> treats the brief as a safety control.","<b>Lead with the fact that matters.</b> Do not build to it chronologically when somebody needs to act. And distinguish confirmed fact from unconfirmed report, explicitly, every time.","<b>Never cause, never liability, never loss value.</b> Not to the client, not to a caller, not to anybody. And never commit the client to a course of action."]},"cta":"Start with the two calls"},"ledger":{"tab":"The two calls","head":"The officer brief and the 911 call","sub":"The same ten elements, handled differently depending on who is on the other end. One side of each row is hidden and the side alternates. Rows you have opened stay open next time you are here.","colA":"Officer brief · 010","colB":"Emergency services · 011","cta":"On to the cards","rows":[{"label":"Location","a":"Site and the precise location within the site. They know the address, they need to know which gate, which row, which door.","b":"Full street address, city, state, first. Then the specific location within the site and the best point of access for responders. They know nothing about this place."},{"label":"Nature","a":"What is happening, in the order that helps them decide how to approach. They work this site and share your vocabulary for it.","b":"In plain language. Not a code, not internal terminology, nothing a dispatcher would have to ask you to translate."},{"label":"Subjects","a":"Number, position within the site, and observable behaviour, so they know what they are about to walk into.","b":"Number, description in objective terms, current location and direction of travel. Objective means behaviour and clothing, never personal characteristics as a basis."},{"label":"Weapons","a":"Whether a weapon or threat has been observed, and explicitly what has not been established. \"No weapon observed\" is different from \"no weapon present.\"","b":"Whether a weapon has been observed. If it has not, say so explicitly rather than leaving it unaddressed, because silence gets filled in by whoever is listening."},{"label":"Injuries","a":"Whether anyone appears hurt, and where they are, so the officer knows whether they are responding to a person or a property problem.","b":"Whether any person appears injured, and how many. This is the element that decides what kind of unit gets sent."},{"label":"Hazards","a":"Animals, vehicles, environmental conditions, anything on camera they cannot see from the approach.","b":"Any hazard visible on camera that responders cannot yet see. Flagging it while they are en route is part of the value of remote observation."},{"label":"Who you are","a":"The GSOC operator for their site. Identify yourself, your role and the site at the start of the call.","b":"A remote monitoring operator observing by camera, not a person on scene. Responders must know the report is remote and continuous."},{"label":"Callback","a":"The floor channel they already use. Confirm it is working, because the dispatch channel is tested at shift start for this exact moment.","b":"A direct number that will be answered continuously for the duration of the incident. Not a general line, not a number that rolls to voicemail at 03:00."},{"label":"Confirmation","a":"A read-back of the location and the nature of the event. You require it rather than hope for it.","b":"Whatever the dispatcher asks for, and stay on the line as long as they require it."},{"label":"During the response","a":"Live observation maintained throughout, with updates on subject movement. You are their eyes on the wider scene.","b":"Live updates on subject movement, additional subjects, or changing conditions. The manual calls live remote observation the distinctive value the GSOC provides in this moment."}]},"gallery":{"tab":"The file","head":"The file on the calls","sub":"Two files. Five cards on the officer call, five on the emergency and client calls. The bottom of each card is sealed until you ask for it, so try answering it yourself first.","note":"Read all ten and this section marks complete. The GSOC Call Protocol documents for Field Officer, Life Safety and Management are the working scripts, and the role-plays on the floor run against them.","cta":"Go to the drill","files":[{"key":"officer","label":"The officer call","items":[{"id":"o1","name":"The brief, in order","real":"SOP-GSOC-010 · a safety control","teaser":"Six elements in a fixed sequence, because the order is what makes it usable.","fields":[["The order","Site and precise location within the site. Nature of the event. Number of subjects. Whether a weapon or threat has been observed. Direction of travel. Any hazard, including animals, vehicles or environmental conditions."],["Why the order","Every element after the first is useless without it, and an officer who hears the location first can start moving while you are still talking."],["Why it is a control","The officer is walking into a situation you can see and they cannot. The quality of the brief is a safety control, not a documentation requirement."],["What gets measured","Dispatch time from verification to officer contacted, first-attempt contact success rate, and dispatch quality as a QA criterion covering brief completeness and read-back."]],"sealedLabel":"what a complete brief sounds like","sealed":"\"Site 114, rear service door on the north side. Single subject working at the lock with an unidentified tool. One subject only, nobody else on site. No weapon observed, and I cannot rule one out from this view. He arrived on foot from the west. There is a bicycle laid down behind the bin store you will pass on the way in. Can you read the location and the nature back to me.\""},{"id":"o2","name":"The read-back","real":"SOP-GSOC-010 · required, not hoped for","teaser":"You require it. On a critical instruction, so does 012.","fields":[["What it covers","The location and the nature of the event, at minimum. Those are the two things that cost the most if they were misheard."],["Why it exists","Radio and phone audio at 02:00 with an officer walking is not a clean channel, and confidence is not comprehension."],["Where else it applies","Any critical instruction on any channel. 012 requires a read-back on a critical instruction as part of the communication standard."],["What gets measured","Read-back obtained is part of the QA dispatch quality criterion, alongside brief completeness and whether live updates were provided."]],"sealedLabel":"how to ask without sounding like a checklist","sealed":"\"Read that back for me\" is enough, and nobody who does this work finds it odd. If they read it back wrong, you have just prevented the version of this night where an officer approaches the wrong side of a building. If they read it back right, it cost four seconds."},{"id":"o3","name":"What has not been established","real":"The single clearest line in the procedure","teaser":"\"No weapon observed\" and \"no weapon present\" are different sentences.","fields":[["The rule","State explicitly what has not been established. The officer must know which of the two statements they are being given."],["Why it matters here most","This is the one element of the brief that changes how an officer physically approaches. Everything else affects efficiency. This affects them."],["Where it comes from","The same discipline as verification: you may record that a subject is carrying an object and describe it, and you may not call it a weapon unless it is clearly identifiable as one."],["The other direction","Do not overstate either. Describing an unidentified object as a weapon changes what responders prepare for and has nearly gone badly wrong more than once."]],"sealedLabel":"the phrasing that covers it","sealed":"\"No weapon observed, and I cannot rule one out from this view.\" Nine words, and they carry the observation, the limit of the observation, and the reason for the limit. The same construction works for anything else you are unsure of: what you saw, and what you could not see."},{"id":"o4","name":"Live updates","real":"The part a camera alone cannot do","teaser":"The officer loses situational awareness the moment they arrive. You do not.","fields":[["What you do","Maintain live observation throughout the response and continue updating the officer on subject movement. You are their eyes on the wider scene."],["What to push without being asked","A subject moving to where the officer is heading. A second subject appearing. A vehicle arriving. Anything leaving the area, which is when the response purpose changes."],["Where talk-down sits","Where authorized, use talk-down to deter subjects or to direct the response. <b>[CONFIRM]</b> talk-down authorization per site, which is per site and not per operator."],["What gets recorded","The dispatch, the officer contacted, the method, the time of contact, and every subsequent update. Then arrival, findings and outcome on scene."]],"sealedLabel":"the trap inside this one","sealed":"On a life-safety event, talk-down is used only if it will not escalate risk to responders or to any person on scene, and when in doubt you do not. A speaker announcing that someone is being watched can move a subject toward the person walking in."},{"id":"o5","name":"The failed-dispatch ladder","real":"SOP-GSOC-010 · four named failures","teaser":"Four ways a dispatch fails, four different destinations.","fields":[["No answer on primary","Attempt the alternate immediately. Do not wait out a full ring cycle a second time. Log every attempt with its timestamp."],["Both unreachable","Level 2 immediately, with every attempt recorded. An unanswered call is not a discharged obligation."],["Officer declines or cannot respond","Record the stated reason verbatim, then Level 2. Verbatim, because paraphrase invites argument later."],["No report-back inside the interval","Attempt contact, and on no response treat officer welfare as a potential life-safety matter and escalate to Level 5. <b>[CONFIRM]</b> expected report-back interval."]],"sealedLabel":"the fifth case, which is different","sealed":"No officer assigned to the site at all is a Level 4 for a client decision on response. That one is not a failure of the dispatch, it is a gap in the program, and the decision about what happens instead belongs to the client rather than to you or the Supervisor."}]},{"key":"other","label":"The other two calls","items":[{"id":"e1","name":"Immediate action","real":"SOP-GSOC-011 · three things you do not do","teaser":"Written to be followed without interpretation, under time pressure.","fields":[["What you do","On a verified life-safety threat, contact emergency services without delay. Notify the Supervisor and client escalation contact in parallel, using a second operator or channel where available."],["What you do not do","Seek supervisor approval first. Wait for dispatch to complete. Wait for further verification."],["The threshold","Deliberately low. Where the event is ambiguous but a life-safety outcome is plausible, you escalate."],["The asymmetry, on the record","No operator is ever criticized for escalating an event that turned out to be less serious than it appeared. Operators are held accountable for failing to escalate. The procedure requires this be stated to every operator at certification."]],"sealedLabel":"what to do with the hesitation","sealed":"Name it. The feeling that you should check first is the exact feeling the control was written to override, and recognizing it is most of the work. Time from life-safety classification to emergency services contacted is described in the manual as the most consequential metric in it, and that metric is measured in the seconds you spend deciding whether you are allowed."},{"id":"e2","name":"The remote caller","real":"SOP-GSOC-011 · caller identity","teaser":"They need to know you are not standing there.","fields":[["What you say","That you are a remote monitoring operator observing by camera, not a person on scene. Responders must know the report is remote and continuous."],["Why it changes things","It tells them the information is live and will keep coming, that you cannot be hurt by what you are describing, and that nobody at the scene knows they have been reported."],["The callback","A direct number answered continuously for the duration. Not a general line and not a number that rolls to voicemail overnight."],["Then stay","Remain on the line as long as the dispatcher requires, and keep providing live updates on movement, additional subjects and changing conditions."]],"sealedLabel":"the jurisdictional part of this","sealed":"Some jurisdictions operate verified-response policies and will not dispatch on an unverified alarm. Your visual verification is what makes the report actionable, so you state clearly that the event is visually verified and being observed live. <b>[CONFIRM]</b> which program sites sit in verified-response or alarm-permit jurisdictions and what each requires."},{"id":"e3","name":"Channel discipline","real":"SOP-GSOC-012 · the control","teaser":"A time-critical matter is spoken, not written.","fields":[["The channels","Approved dispatch channel for officer dispatch and live coordination. Internal floor channel to Shift Lead and Supervisor. Client escalation channel for Level 4. The incident system of record for the authoritative record. Email for non-urgent confirmation and scheduled reporting."],["What each is not for","The dispatch channel is not for anything that is not time-critical. The floor channel is not for client-identifiable detail where it is not access-controlled. The incident system is not for real-time urgent communication. Email is never for anything urgent."],["The control","Urgency is never communicated by a channel that does not guarantee an immediate human response."],["The standard on every call","Identify yourself, your role and the site. Lead with the most important fact. Use plain language with no internal codes outside the GSOC. Confirm receipt and understanding. Distinguish confirmed fact from unconfirmed report, explicitly, every time."]],"sealedLabel":"the failure this prevents","sealed":"An urgent message sitting in an inbox nobody is watching, while everybody involved believes it has been communicated. Written communication feels more responsible because it leaves a trace. The trace is not the point at 02:00, and the incident record is where the trace belongs anyway."},{"id":"e4","name":"Level 4 client notification","real":"SOP-GSOC-012 · the Supervisor actions it","teaser":"Four things you say, three things you never say.","fields":[["When","When the event meets the notification threshold in the Program Annex. <b>[CONFIRM]</b> the threshold definition for this program. Promptly, because notification time from threshold event is measured."],["What you say","What is known. What is not yet known. What the GSOC has done. What happens next."],["What you never say","Cause. Liability. Loss value. And you never commit the client to a course of action."],["Why promptness is the whole thing","A client who learns of an incident at their own site from anyone other than the GSOC is a failure of this procedure regardless of how well the incident itself was handled."]],"sealedLabel":"the answer when they push for a cause","sealed":"\"I can tell you what we observed and what we have done. What caused it is not something I can determine from here, and I am not going to guess at it.\" Then what happens next, and who will follow up. Speculation offered to be helpful becomes a quoted GSOC position in an insurance file."},{"id":"e5","name":"The external enquiry","real":"SOP-GSOC-012 · route it, confirm nothing","teaser":"Including whether an incident occurred at all.","fields":[["Who this covers","Media, insurers, attorneys and members of the public. They are never given information."],["How far the refusal goes","You do not confirm any detail, including whether an incident occurred. That is the part people give away, usually out of politeness."],["Where it goes","The Program Director, without exception. Law-enforcement requests outside a live emergency go the same way, for handling under 018."],["The client-side version","Requests from client personnel who are not on the authorized contact list are verified with an authorized contact before any information is shared."]],"sealedLabel":"the script, and the record","sealed":"\"I am not the right person for that. I will pass your details to our Program Director and somebody will come back to you.\" Then record it: caller detail, what they asked, and the routing applied. Every external enquiry is recorded including the refused ones, because the pattern of who is calling is itself information, and externally enquiries correctly routed has a target of 100 percent."}]}]},"sort":{"tab":"Say it or never","head":"Say it, or never say it","sub":"Twelve things you might be about to put into a call. Some belong in one. Some belong in none of them. Drag each one to a file, or tap it and then tap the file.","cta":"Skip ahead to the field test","win":"Twelve for twelve. The pattern on the right-hand side: every one of them is a conclusion rather than an observation, or a commitment that is not yours to make.","bins":[{"key":"say","label":"Goes in the call","sub":"Observed, or honestly bounded"},{"key":"never","label":"Never in the call","sub":"Conclusion, guess or commitment"}],"items":[{"name":"Full street address and the best access point","bin":"say","why":"Goes in, first, on the 911 call. They know nothing about this place and everything else you say is useless without it."},{"name":"Whether a weapon has been observed","bin":"say","why":"Goes in, explicitly, including when it has not been observed. Silence on this element gets filled in by whoever is listening."},{"name":"What has not been established","bin":"say","why":"Goes in. \"No weapon observed, and I cannot rule one out from this view.\" The officer has to know which statement they are getting."},{"name":"That you are watching remotely by camera","bin":"say","why":"Goes in. Responders must know the report is remote and continuous, and it changes how they treat what you tell them next."},{"name":"A hazard visible on camera that they cannot see","bin":"say","why":"Goes in, unprompted. Alerting responders to a hazard they cannot yet see is the distinctive value of live remote observation."},{"name":"Every attempted contact and its time","bin":"say","why":"Goes in the record, and the fact of the failed attempts goes to whoever you escalate to. An unanswered call at 02:14 is often the most important line in the record."},{"name":"What caused the incident","bin":"never","why":"Never. No speculation on cause, to anyone. From a camera you can say what happened, not why."},{"name":"Who is liable","bin":"never","why":"Never. Liability is not a GSOC determination and an offered opinion becomes a quoted position in an insurance file."},{"name":"An estimate of the loss value","bin":"never","why":"Never. You record what was observed. Valuing it is the client's and the insurer's, and a number you volunteer will be treated as an assessment."},{"name":"Internal escalation codes","bin":"never","why":"Never outside the GSOC, including to officers and client staff. Plain language, no codes, nothing a dispatcher would have to translate."},{"name":"What the subject was trying to do","bin":"never","why":"Never. Intent, motive and state of mind are out. Describe the movement and the duration and let the listener draw their own conclusion."},{"name":"Whether an incident occurred, to a reporter","bin":"never","why":"Never. Media get nothing, and that includes confirming that anything happened. Route to the Program Director and record the enquiry."}]},"field":{"tab":"Field test","head":"Field test","sub":"Three calls. One where nobody answers, one where you cannot read the scene, and one where the client wants an answer you do not have. Pick the line you would actually take.","scenarios":[{"id":"f1","line":"SOP-GSOC-010 · A6","title":"01:14, and the ladder","setup":"Verified actionable event at a plant hire depot. One subject inside the compound, no threat to any person, cutting equipment visible. You go to dispatch and the primary officer number rings out.","start":"n1","nodes":{"n1":{"text":"The matrix has an alternate. The subject is working on a container lock and you have a clear view.","choices":[{"t":"Alternate immediately, and log the failed primary attempt with its time.","to":"n2a"},{"t":"Try the primary once more first.","to":"n2b"}]},"n2a":{"text":"The alternate answers and says he will not attend. He has been told by his own supervisor not to enter compounds alone after midnight.","choices":[{"t":"Record the reason verbatim, escalate to Level 2, and keep observing.","to":"win1"},{"t":"Try to talk him into it. He is the only officer answering.","to":"mid1"},{"t":"Record it as officer unavailable and close the dispatch.","to":"loss1"}]},"n2b":{"text":"Another full ring cycle, no answer. Ninety seconds gone. The subject now has the container open.","choices":[{"t":"Alternate now.","to":"n2a"},{"t":"Level 2, and let the Supervisor work the contact problem.","to":"mid2"}]},"win1":{"end":true,"win":true,"verdict":"Held the standard","text":"\"My supervisor has instructed me not to enter compounds alone after midnight\" goes into the record in his words, with the time. Level 2 at 01:17. The Supervisor reaches the client duty line and police are informed of a theft in progress with the GSOC observing live. The record shows three contact attempts, two failures and a decline with its reason.","why":"A decline is recorded verbatim because paraphrase invites argument later, and it turned out to be a standing instruction rather than an individual refusal, which is a program finding rather than a personnel one. The escalation moved the obligation the moment dispatch could not discharge it."},"mid1":{"end":true,"win":false,"verdict":"Partial","text":"Four minutes of persuasion. He holds his position, which is the correct thing for him to do, and you have spent the time an escalation would have used. He attends eventually, alone, against his instruction.","why":"Two problems. The minutes, and the fact that you talked an officer into overriding a safety instruction from his own employer. Officer safety is not the GSOC's to trade, and a decline routes to Level 2 where somebody with the authority to arrange a different response can arrange one."},"mid2":{"end":true,"win":false,"verdict":"Partial","text":"The Supervisor picks up the contact problem and resolves it, later than necessary. The record shows two full ring cycles on the primary before the alternate was ever tried.","why":"Escalating was right, the sequence was not. On no answer you attempt the alternate immediately rather than waiting out a second full ring cycle. That instruction exists because ring cycles are exactly where these minutes disappear."},"loss1":{"end":true,"win":false,"verdict":"Setback","text":"\"Officer unavailable\" and the dispatch is closed. Nothing else happens. The container is emptied over the next fifty minutes while a verified event sits with a closed dispatch and no response.","why":"A failed dispatch escalates, it does not close. An escalation that cannot be completed is itself escalated one level up without delay, and the verified event still needed a response decision from somebody. Closing it removed the obligation from the record without discharging it."}}},{"id":"f2","line":"SOP-GSOC-011 · 007","title":"The call you have to make now","setup":"03:48. A subject on the ground in a loading bay, another subject standing over them. Poor light, single camera, and the standing subject is holding something you cannot identify. No officer is assigned to this site tonight.","start":"n1","nodes":{"n1":{"text":"You have a plausible assault in progress, an unidentifiable object, and nobody on site to send.","choices":[{"t":"911 now. Then Supervisor and client in parallel.","to":"n2a"},{"t":"Check the other cameras first so you can describe it properly.","to":"n2b"},{"t":"Level 4 first, since there is no officer assigned.","to":"loss1"}]},"n2a":{"text":"The dispatcher answers. First question: what is the address.","choices":[{"t":"Full street address, city, state, then the loading bay and the best access point.","to":"n3a"},{"t":"Site 114, the depot on the industrial estate.","to":"mid1"}]},"n2b":{"text":"Two cameras, eleven seconds. One is offline, the other covers the far side. You have learned nothing and the standing subject has moved closer to the person on the ground.","choices":[{"t":"Stop and call now with what you have.","to":"n2a"},{"t":"One more camera.","to":"loss2"}]},"n3a":{"text":"They ask whether there is a weapon and whether anyone is injured.","choices":[{"t":"Object visible, not identifiable from this view, not ruled out. One person on the ground, not moving, injuries unknown. Remote operator watching live, callback number is this line.","to":"win1"},{"t":"Say there is a weapon, because the object is being held over a person on the ground.","to":"mid2"}]},"win1":{"end":true,"win":true,"verdict":"Held the standard","text":"Police and ambulance dispatched at 03:50 on a call that took fifty seconds. You stay on the line, tell them when the standing subject leaves the bay northbound, and describe the vehicle. The Supervisor takes the client leg while you are still talking, and the person on the ground is treated on scene.","why":"Every element in order, every uncertainty bounded, and the parallel notification handled by somebody else so it did not cost you the line. This is 011 as written: contact immediately, notify in parallel, state what has and has not been established, stay on as long as the dispatcher requires, and keep feeding live updates because that is the distinctive value the GSOC provides in this moment."},"mid1":{"end":true,"win":false,"verdict":"Partial","text":"The dispatcher asks you three follow-up questions to establish where they are sending units. Forty seconds of a call about a person on the ground is spent on geography.","why":"Full street address, city and state come first, and the operator is expected to know the site address without looking it up mid-call, which is why it is displayed at the console. Everything else you have to say is worthless until they know where to send somebody."},"mid2":{"end":true,"win":false,"verdict":"Partial","text":"Units arrive expecting an armed assailant. The object is a torque wrench and the standing subject is a colleague who found the man on the ground after a fall. The approach is tactical and it very nearly becomes a second incident.","why":"Escalating was right, describing was wrong. You escalate on plausibility and you describe on observation. An unidentified object stays unidentified out loud, and the plausible-life-safety framing is what justifies the call without you having to upgrade the facts."},"loss1":{"end":true,"win":false,"verdict":"Setback","text":"You raise Level 4 for a client decision on response. It takes six minutes to reach the duty line and another two for somebody to say call an ambulance.","why":"No officer assigned is a Level 4 for a client decision on response to a non-life-safety event. A plausible life-safety event does not wait on anybody: emergency services first, everything else in parallel. Life safety outranks scope, cost, client preference and chain of command."},"loss2":{"end":true,"win":false,"verdict":"Setback","text":"You spend another twenty seconds on a third camera. It shows nothing new. By the time you call, ninety seconds have passed since you first saw a person on the ground.","why":"Where the event is ambiguous but a life-safety outcome is plausible, you escalate. You do not wait for further verification, and the value of a better description never outweighs the cost of a later call on this category of event."}}},{"id":"f3","line":"SOP-GSOC-012 · 018","title":"08:20, and everybody wants an answer","setup":"An overnight break-in at a client warehouse, handled and closed. At 08:20 the client's regional manager calls the floor directly. He is not on the authorized contact list. Nine minutes later a local reporter calls.","start":"n1","nodes":{"n1":{"text":"The regional manager wants to know what happened, how they got in, and what it will cost. He is plainly senior and plainly entitled to know something.","choices":[{"t":"Verify him with an authorized contact before sharing anything.","to":"n2a"},{"t":"Tell him what was observed but not the cause or the value.","to":"n2b"},{"t":"Tell him everything. He is the client.","to":"loss1"}]},"n2a":{"text":"You check the matrix. He is not on it. The authorized contact for this site does not answer, and the regional manager is getting impatient.","choices":[{"t":"Hold, route it to the Supervisor, and tell him plainly why you cannot share it yet.","to":"n2c"},{"t":"Share the basics only, since he is obviously genuine.","to":"mid1"}]},"n2b":{"text":"You describe what the cameras showed. He asks how they got in, then what the stock was worth, then whether the GSOC thinks the alarm contractor is at fault.","choices":[{"t":"Decline all three, explain why, and route him to the Supervisor.","to":"win2"},{"t":"Answer the entry question, since that is factual.","to":"mid2"}]},"n2c":{"text":"The manager is held and routed to the Supervisor. At 08:29 the reporter calls and asks whether there was a break-in at the site last night.","choices":[{"t":"Confirm nothing, route to the Program Director, record the enquiry.","to":"win1"},{"t":"Confirm there was an incident but decline detail.","to":"loss2"}]},"win1":{"end":true,"win":true,"verdict":"Held the standard","text":"The regional manager is told plainly that you can only share incident detail with the authorized contact and that the Supervisor is picking it up now. The reporter is told you are not the right person and that the Program Director will come back to them. Both enquiries are recorded with caller detail and the routing applied.","why":"Requests from client personnel not on the authorized contact list are verified with an authorized contact before any information is shared. Media get nothing, including whether an incident occurred. Both get recorded, including the refusals, because external enquiries correctly routed has a target of 100 percent and the pattern of who is calling is itself information."},"win2":{"end":true,"win":true,"verdict":"Held the standard","text":"All three declined, with a reason rather than a wall: you can say what was observed, you cannot determine cause, value or fault, and the Supervisor will follow up with the authorized contact. He is not happy and he does not have a complaint that stands up.","why":"Never speculate on cause, liability or loss value, and never commit the client to a course of action. The question about the alarm contractor is the dangerous one: an opinion offered on the floor at 08:30 becomes a quoted GSOC position in a claim, and the person quoting it will not include your caveats."},"mid1":{"end":true,"win":false,"verdict":"Partial","text":"You share the outline. It turns out he is exactly who he says he is, and the authorized contact calls at 09:10 annoyed that the regional manager knew before they did.","why":"He was genuine, which was never the question. The contact list governs who is authorized to receive information, and the client's own internal sequencing is one of the things it protects. Verification takes a phone call and removes the judgment from your shoulders entirely."},"mid2":{"end":true,"win":false,"verdict":"Partial","text":"You explain the point of entry. It is factual and it is also the first line of the client's dispute with their alarm contractor, and it came from the GSOC to an unverified caller.","why":"Factual does not mean releasable. What was observed goes to the authorized contact, and the mechanism of entry is exactly the kind of detail that ends up in a liability argument. The verification step exists so that this decision is not yours to make at speed."},"loss1":{"end":true,"win":false,"verdict":"Setback","text":"Full detail, including your read on how they got in and a rough sense of what was taken. It reaches the client's insurer via the regional manager by lunchtime, attributed to the GSOC, with a loss estimate nobody at the GSOC was qualified to give.","why":"Three separate breaches in one call: an unverified recipient, speculation on cause, and a loss value. Any one of them is recoverable. Together they make the GSOC a party to a claim rather than a witness in it."},"loss2":{"end":true,"win":false,"verdict":"Setback","text":"\"There was an incident, I cannot say more.\" The story runs that evening citing a security operator confirming an overnight break-in at the site. The client sees it before the Program Director does.","why":"Media, insurers, attorneys and the public are never given information, and that explicitly includes whether an incident occurred. Confirming the fact is the entire story, and the refusal to elaborate does not soften it."}}}]},"quiz":{"pass":10,"passMsg":"Ten or better means the three calls are distinct in your head, which is the whole point of today. Day 9 is the record that all three of them feed.","failMsg":"Under ten. The say-it-or-never drill is the fastest fix, then the cards on what has not been established and the external enquiry. Those two carry most of the risk on this day.","items":[{"q":"What is the first element of an officer dispatch brief?","opts":[{"t":"Site and the precise location within the site.","ok":true,"why":"The order is fixed because everything after the first element is useless without it, and an officer who hears the location first can start moving while you are still talking."},{"t":"The nature of the event, so they know what they are dealing with.","ok":false,"why":"Second. They cannot start moving toward a nature of event."},{"t":"Whether a weapon has been observed.","ok":false,"why":"Fourth in the order. Critical, and not the thing that gets them moving."},{"t":"Your name and role, as with any operational communication.","ok":false,"why":"You do identify yourself, and the brief proper starts with location. The identification is not one of the six elements."}]},{"q":"You have not seen a weapon. What do you tell the officer?","opts":[{"t":"That no weapon has been observed, and that you cannot rule one out from the available view.","ok":true,"why":"\"No weapon observed\" is different from \"no weapon present\" and the officer has to know which one they are being told. 010 treats the brief as a safety control for exactly this reason."},{"t":"That there is no weapon.","ok":false,"why":"That is a claim about the world rather than about your view, and the person it misleads is walking in."},{"t":"Nothing about weapons, since there is nothing to report.","ok":false,"why":"Silence on this element gets filled in by whoever is listening, usually optimistically."},{"t":"That there may be a weapon, to be safe.","ok":false,"why":"Overstating changes what they prepare for. Describe the observation and its limits, not a hedge in either direction."}]},{"q":"Primary officer number rings out. Immediate next action?","opts":[{"t":"Attempt the alternate immediately, without waiting out a second full ring cycle on the primary.","ok":true,"why":"010 is specific, because ring cycles are exactly where these minutes disappear. Every attempt gets logged with its timestamp, including the failures."},{"t":"Try the primary again in case of a bad connection.","ok":false,"why":"That is the instruction the procedure rules out by name."},{"t":"Escalate straight to Level 2.","ok":false,"why":"Level 2 comes when both primary and alternate are unreachable. The alternate comes first."},{"t":"Use talk-down instead to deter the subject.","ok":false,"why":"Talk-down is a tool where authorized, not a substitute for a response. The dispatch obligation is still live."}]},{"q":"An officer declines to respond.","opts":[{"t":"Record the stated reason verbatim and escalate to Level 2.","ok":true,"why":"Verbatim because paraphrase invites argument later, and because the reason may be a standing instruction rather than an individual refusal, which is a program finding rather than a personnel one."},{"t":"Persuade them, since they are the assigned officer.","ok":false,"why":"Officer safety is not the GSOC's to trade, and the minutes spent are the minutes an escalation would have used."},{"t":"Record it as officer unavailable and close the dispatch.","ok":false,"why":"A failed dispatch escalates, it does not close. The verified event still needs a response decision from somebody."},{"t":"Dispatch a different site's officer.","ok":false,"why":"That is a trade with a second client attached to it, and it is not the operator's to make."}]},{"q":"On a 911 call, what comes first?","opts":[{"t":"Full street address, city and state, then the location within the site and the best access point.","ok":true,"why":"They know nothing about this place, and everything else you have to say is worthless until they know where to send somebody. The operator is expected to know the address without looking it up mid-call, which is why it is displayed at the console."},{"t":"That a life-safety event is in progress.","ok":false,"why":"Nature comes after location. Urgency without an address sends nobody anywhere."},{"t":"That you are a remote monitoring operator.","ok":false,"why":"Essential, and not first. It is one of the seven elements, not the opening line."},{"t":"The site ID and the client name.","ok":false,"why":"Internal identifiers mean nothing to a dispatcher. Plain language and a street address."}]},{"q":"Why does the dispatcher need to know you are a remote operator on camera?","opts":[{"t":"Because it tells them the report is remote and continuous, and that nobody on scene knows they have been reported.","ok":true,"why":"It also tells them you cannot be hurt by what you are describing and that updates will keep coming, which changes how they use you during the response."},{"t":"So they know to send fewer units.","ok":false,"why":"Nothing about the caller's location changes the response scale. The injuries and weapons elements do that."},{"t":"For call-recording and liability purposes.","ok":false,"why":"It is an operational fact they need, not a disclaimer."},{"t":"Because some jurisdictions will not accept remote reports.","ok":false,"why":"The jurisdictional issue is verified response, and your verification is what makes the report actionable. Remote reporting is not the problem."}]},{"q":"Which channel is never used for an urgent matter?","opts":[{"t":"Email, under any circumstances.","ok":true,"why":"The control is that urgency is never communicated by a channel that does not guarantee an immediate human response. A time-critical matter is spoken, not written."},{"t":"The internal floor channel, since it is not access-controlled.","ok":false,"why":"The floor channel is for operator to Shift Lead and Supervisor. The restriction on it is client-identifiable detail where the channel is not access-controlled."},{"t":"The incident system of record.","ok":false,"why":"Close. The incident system is not for real-time urgent communication, and that is a different failure from email: nobody is watching it as a message channel."},{"t":"The client escalation channel.","ok":false,"why":"That is exactly what it is for, at Level 4 per the annex."}]},{"q":"A Level 4 client notification. What are the four things you cover?","opts":[{"t":"What is known, what is not yet known, what the GSOC has done, and what happens next.","ok":true,"why":"And promptly, because a client who learns of an incident at their own site from anyone other than the GSOC is a failure of this procedure regardless of how well the incident was handled."},{"t":"What happened, what it cost, who is responsible, and what you recommend.","ok":false,"why":"Three of those are explicitly off limits: cause, loss value and liability. Recommendations that commit the client are too."},{"t":"A full narrative read from the incident record.","ok":false,"why":"The record is the record. The notification is a short structured update that leads with what matters."},{"t":"Whatever they ask for, since it is their site.","ok":false,"why":"The content is defined by the procedure, not by the question. And the recipient has to be the authorized contact."}]},{"q":"A client's regional manager who is not on the authorized contact list asks what happened last night.","opts":[{"t":"Verify with an authorized contact before sharing anything, and route it while you wait.","ok":true,"why":"Requests from client personnel not on the authorized contact list are verified with an authorized contact before any information is shared. Their being genuine was never the question."},{"t":"Share the factual observations only.","ok":false,"why":"Factual does not mean releasable, and the point of entry is exactly the detail that ends up in a liability argument."},{"t":"Share everything, since they are the client.","ok":false,"why":"The contact list also protects the client's own internal sequencing. The authorized contact hearing it second is a problem you created."},{"t":"Refuse and end the call.","ok":false,"why":"Route it and explain why. A refusal with no route is how a reasonable request becomes an escalation about the GSOC."}]},{"q":"A reporter asks whether there was an incident at a client site.","opts":[{"t":"Confirm nothing, including whether an incident occurred, route to the Program Director, and record the enquiry.","ok":true,"why":"That is the whole rule and the confirmation is the part people give away out of politeness. Confirming the fact is the story, and declining to elaborate does not soften it."},{"t":"Confirm an incident occurred but decline all detail.","ok":false,"why":"That is the story. \"A security operator confirmed an overnight break-in\" is a complete news line."},{"t":"Say no comment and end the call.","ok":false,"why":"The refusal is right, the missing record and the missing route are not. Refused enquiries are logged with caller detail and the routing applied."},{"t":"Take a message for the client to answer.","ok":false,"why":"External enquiries route to the Program Director, not to the client, and not via the floor."}]},{"q":"A detective calls three days after an incident asking for the footage.","opts":[{"t":"Route to the Program Director. Law-enforcement requests outside a live emergency are handled under 018.","ok":true,"why":"Operators and supervisors do not release records directly, including to law enforcement, outside a live emergency. Identity and legal authority get verified, the client gets notified unless the GSOC is legally prohibited, and the disclosure is recorded."},{"t":"Provide it. It is a law-enforcement request about a real incident.","ok":false,"why":"During a live emergency you cooperate fully. Three days later it is a records request with a defined route."},{"t":"Provide it and log the access.","ok":false,"why":"Logging is required and it is not authorization. The release itself is the Director's."},{"t":"Ask the client whether to release it.","ok":false,"why":"The client does get notified of third-party requests unless prohibited, and the routing and the decision still sit with the Program Director."}]},{"q":"When is talk-down not used, even where it is authorized?","opts":[{"t":"On a life-safety event where it could escalate risk to responders or to any person on scene. When in doubt, you do not.","ok":true,"why":"011 is explicit. A speaker announcing that someone is being watched can move a subject toward the person walking in, which is the opposite of what it was reached for."},{"t":"Whenever an officer has already been dispatched.","ok":false,"why":"Talk-down is used to deter subjects or direct the response, which often runs alongside a dispatch."},{"t":"Outside contracted hours.","ok":false,"why":"Authorization is bound per site in the annex, not by hour."},{"t":"Only when the Supervisor authorizes it in the moment.","ok":false,"why":"Authorization is per site and pre-bound. The judgment in the moment is the risk one."}]}]}};
+const NS = 'gsoc:' + SPEC.id + ':';
+
+/* ============================ STORAGE ============================ */
+const mem = {};
+const store = {
+  async get(k, shared=false){
+    const mk = (shared?'s:':'p:')+k;
+    try{
+      if(window.storage){ const r = await window.storage.get(k, shared); if(r) return JSON.parse(r.value); }
+    }catch(e){}
+    try{
+      const raw = window.localStorage && localStorage.getItem(mk);
+      if(raw) return JSON.parse(raw);
+    }catch(e){}
+    return mk in mem ? mem[mk] : null;
+  },
+  async set(k, v, shared=false){
+    const mk = (shared?'s:':'p:')+k;
+    mem[mk] = v;
+    const json = JSON.stringify(v);
+    try{ if(window.storage) await window.storage.set(k, json, shared); }catch(e){}
+    try{ if(window.localStorage) localStorage.setItem(mk, json); }catch(e){}
+  }
+};
+
+let PROFILE = { name:"", share:false };
+let PROGRESS = { visited:[], dossiers:[], sortBest:null, scenarios:[], quizTaken:false,
+  lastTab:null, revealed:[], sortState:null, scenState:null, quizState:null, updatedAt:null };
+let ATTEMPTS = [];
+
+async function loadAll(){
+  const p = await store.get(NS+'profile'); if(p) PROFILE = Object.assign(PROFILE, p);
+  const g = await store.get(NS+'progress'); if(g) PROGRESS = Object.assign(PROGRESS, g);
+  const a = await store.get(NS+'attempts'); if(Array.isArray(a)) ATTEMPTS = a;
+}
+const saveProfile  = () => store.set(NS+'profile', PROFILE);
+const saveAttempts = () => store.set(NS+'attempts', ATTEMPTS);
+function saveProgress(){
+  PROGRESS.updatedAt = new Date().toISOString();
+  paintSaved();
+  return store.set(NS+'progress', PROGRESS);
+}
+function ago(iso){
+  if(!iso) return '';
+  const s = (Date.now() - new Date(iso))/1000;
+  if(s < 90) return 'a moment ago';
+  if(s < 3600) return Math.round(s/60) + ' minutes ago';
+  if(s < 86400) return Math.round(s/3600) + ' hours ago';
+  const d = Math.round(s/86400);
+  return d === 1 ? 'yesterday' : d + ' days ago';
+}
+function paintSaved(){
+  const e = document.getElementById('savedAt');
+  if(e) e.textContent = PROGRESS.updatedAt ? 'Saved ' + ago(PROGRESS.updatedAt) : '';
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(btnId, msg){
+  const b = document.getElementById(btnId); if(!b) return;
+  const old = b.textContent; b.textContent = msg; setTimeout(()=>b.textContent=old, 1400);
+}
+
+/* ============================ SHELL ============================ */
+const TABS = [
+  { id:"brief",   label:"Brief" },
+  { id:"ledger",  label:SPEC.ledger.tab },
+  { id:"gallery", label:SPEC.gallery.tab },
+  { id:"sort",    label:SPEC.sort.tab },
+  { id:"field",   label:SPEC.field.tab },
+  { id:"quiz",    label:"Assessment" },
+  { id:"records", label:"Records" }
+];
+let current = "brief";
+const GAL_TOTAL = SPEC.gallery.files.reduce((n,f)=>n+f.items.length,0);
+
+function tabLabel(id){ const t = TABS.find(x => x.id === id); return t ? t.label : id; }
+
+function buildHead(){
+  document.getElementById('mcode').textContent = SPEC.code;
+  document.getElementById('mtag').textContent = SPEC.caseTag;
+  document.getElementById('mest').textContent = 'Est. ' + SPEC.est;
+  document.getElementById('mtitle').innerHTML =
+    (SPEC.dayBox ? `<span class="tagbox">${SPEC.dayBox}</span>` : '') +
+    SPEC.title.map((t,i) => i === SPEC.accentLine ? `<span class="a">${t}</span>` : t).join('<br>');
+  document.getElementById('mdek').textContent = SPEC.dek;
+  document.getElementById('msrc').innerHTML = 'Source procedures <b>' + SPEC.sources + '</b>';
+  document.getElementById('mfoot').innerHTML = SPEC.foot;
+}
+function buildTabs(){
+  const nav = document.getElementById('tabs');
+  nav.innerHTML = TABS.map(t =>
+    `<button role="tab" data-tab="${t.id}" aria-selected="${t.id===current}">${esc(t.label)}<span class="dot"></span></button>`
+  ).join('');
+  nav.querySelectorAll('button').forEach(b => b.onclick = () => go(b.dataset.tab));
+}
+function go(id){
+  current = id;
+  document.querySelectorAll('section.view').forEach(s => s.classList.toggle('on', s.id === 'v-'+id));
+  document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab===id));
+  if(!PROGRESS.visited.includes(id)) PROGRESS.visited.push(id);
+  PROGRESS.lastTab = id;
+  saveProgress();
+  RENDER[id] && RENDER[id]();
+  paintProgress();
+  window.scrollTo({top:0, behavior:'instant'});
+}
+function completion(){
+  return {
+    brief:   PROGRESS.visited.includes('brief'),
+    ledger:  PROGRESS.revealed.length >= SPEC.ledger.rows.length,
+    gallery: PROGRESS.dossiers.length >= GAL_TOTAL,
+    sort:    PROGRESS.sortBest === SPEC.sort.items.length,
+    field:   PROGRESS.scenarios.length >= SPEC.field.scenarios.length,
+    quiz:    PROGRESS.quizTaken,
+    records: ATTEMPTS.length > 0
+  };
+}
+function paintProgress(){
+  const c = completion();
+  const keys = ['brief','ledger','gallery','sort','field','quiz'];
+  const done = keys.filter(k => c[k]).length;
+  const pct = Math.round(done/keys.length*100);
+  document.getElementById('pbar').style.width = pct+'%';
+  document.getElementById('ptext').textContent = pct+'% complete';
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('done', !!c[b.dataset.tab]));
+}
+function showResume(){
+  const box = document.getElementById('resume');
+  const q = PROGRESS.quizState;
+  const c = completion(), keys = ['brief','ledger','gallery','sort','field','quiz'];
+  const n = keys.filter(k => c[k]).length;
+  box.innerHTML = `<div class="t"><b>Welcome back${PROFILE.name ? ', ' + esc(PROFILE.name) : ''}</b>
+      You stopped in ${esc(tabLabel(PROGRESS.lastTab))} ${ago(PROGRESS.updatedAt)}. ${n} of 6 sections done${q ? `, and an assessment is sitting open at question ${q.qi + 1}` : ''}. Nothing was lost.</div>
+    ${q ? `<button class="btn" id="resQuiz">Resume the assessment</button>` : ''}
+    <button class="btn ghost" id="resDismiss">Keep going</button>`;
+  box.classList.add('on');
+  box.querySelector('#resDismiss').onclick = () => box.classList.remove('on');
+  if(q) box.querySelector('#resQuiz').onclick = () => { box.classList.remove('on'); go('quiz'); resumeQuiz(); };
+}
+
+/* ============================ VIEW: BRIEF ============================ */
+const RENDER = {};
+RENDER.brief = function(){
+  const el = document.getElementById('v-brief');
+  if(el.dataset.built) return;
+  el.dataset.built = 1;
+  el.innerHTML = `
+    <span class="eyebrow">Start here</span>
+    <h2>${esc(SPEC.brief.head)}</h2>
+    <p class="sub">${SPEC.brief.sub}</p>
+
+    ${SPEC.brief.control ? `<div class="ctrl"><span class="lab">Control</span><p>${SPEC.brief.control}</p></div>` : ''}
+
+    <div class="panel" style="margin-bottom:26px">
+      <div class="hint" style="margin-bottom:10px">Sign in for the competency record</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <input type="text" id="nameIn" placeholder="Your name or employee ID" value="${esc(PROFILE.name)}" style="flex:1">
+        <button class="btn" id="nameSave">Save name</button>
+      </div>
+      <label class="check" style="margin-top:14px">
+        <input type="checkbox" id="shareIn" ${PROFILE.share?'checked':''}>
+        Add my result to the shared cohort roster
+      </label>
+      <p class="note" style="margin:8px 0 0">Off by default. Your scores stay on this device either way. Turn it on and your name, score, and date also go to a roster the Training Lead and everyone else in the cohort can read. Nothing here is the competency record of ${SPEC.certRef} on its own. The Training Lead records that separately.</p>
+    </div>
+
+    <h3>The parts</h3>
+    <div class="ledger">
+      ${SPEC.brief.parts.map(([k,v]) => `<div class="row"><div class="label">${esc(k)}</div><div style="font-size:15px">${v}</div></div>`).join('')}
+    </div>
+
+    ${SPEC.brief.anchors ? `
+      <h3>${esc(SPEC.brief.anchors.head)}</h3>
+      <div class="panel">
+        <ol style="margin:0;padding-left:20px">
+          ${SPEC.brief.anchors.items.map(t => `<li style="margin-bottom:10px">${t}</li>`).join('')}
+        </ol>
+      </div>` : ''}
+
+    <div style="margin-top:28px"><button class="btn" id="goLedger">${esc(SPEC.brief.cta)}</button></div>
+  `;
+  document.getElementById('nameSave').onclick = () => {
+    PROFILE.name = document.getElementById('nameIn').value.trim();
+    saveProfile(); toast('nameSave','Saved');
+  };
+  document.getElementById('shareIn').onchange = e => { PROFILE.share = e.target.checked; saveProfile(); };
+  document.getElementById('goLedger').onclick = () => go('ledger');
+};
+
+/* ============================ VIEW: LEDGER ============================ */
+RENDER.ledger = function(){
+  const L = SPEC.ledger;
+  const el = document.getElementById('v-ledger');
+  el.innerHTML = `
+    <span class="eyebrow">Part one</span>
+    <h2>${esc(L.head)}</h2>
+    <p class="sub">${L.sub}</p>
+    <div class="ledger">
+      ${L.rows.map((r,i) => {
+        const hideB = i % 2 === 0;
+        const A = `<div class="cell"><span class="who">${esc(L.colA)}</span><span class="txt">${r.a}</span></div>`;
+        const B = `<div class="cell b${L.negB?' neg':''}"><span class="who">${esc(L.colB)}</span><span class="txt">${r.b}</span></div>`;
+        const hidden = () => `<div class="cell${hideB?(' b'+(L.negB?' neg':'')):''} reveal" data-rev="${i}"><span class="who">${esc(hideB?L.colB:L.colA)}</span><span class="txt masked">${hideB?r.b:r.a}</span></div>`;
+        return `<div class="row"><div class="label">${esc(r.label)}</div><div class="cols">
+          ${hideB ? A + hidden() : hidden() + B}
+        </div></div>`;
+      }).join('')}
+    </div>
+    <div style="margin-top:26px"><button class="btn" id="toGallery">${esc(L.cta)}</button></div>
+  `;
+  el.querySelectorAll('[data-rev]').forEach(d => {
+    const idx = +d.dataset.rev;
+    const open = () => { d.classList.add('open'); const m = d.querySelector('.masked'); if(m) m.classList.remove('masked'); };
+    if(PROGRESS.revealed.includes(idx)) open();
+    d.onclick = () => {
+      open();
+      if(!PROGRESS.revealed.includes(idx)){ PROGRESS.revealed.push(idx); saveProgress(); paintProgress(); }
+    };
+  });
+  el.querySelector('#toGallery').onclick = () => go('gallery');
+};
+
+/* ============================ VIEW: GALLERY ============================ */
+let galFile = 0;
+RENDER.gallery = function(){
+  const G = SPEC.gallery;
+  const f = G.files[galFile];
+  const alt = galFile === 1;
+  const el = document.getElementById('v-gallery');
+  el.innerHTML = `
+    <span class="eyebrow${alt?' alt':''}">Part two</span>
+    <h2>${esc(G.head)}</h2>
+    <p class="sub">${G.sub}</p>
+    <div class="side-switch">
+      ${G.files.map((x,i) => `<button class="${i===galFile?('on'+(i===1?' alt':'')):''}" data-file="${i}">${esc(x.label)}</button>`).join('')}
+    </div>
+    <div class="dossiers">
+      ${f.items.map((v,i) => `
+        <div class="card ${alt?'alt':''} ${PROGRESS.dossiers.includes(v.id)?'read':''}" data-open="${v.id}">
+          <div class="no">${String(i+1).padStart(2,'0')} / ${String(f.items.length).padStart(2,'0')}</div>
+          <div class="nm">${esc(v.name)}</div>
+          <div class="real">${esc(v.real)}</div>
+          <div class="teaser">${v.teaser}</div>
+          <span class="more">${PROGRESS.dossiers.includes(v.id)?'Reviewed · open again':'Open the card'}</span>
+        </div>`).join('')}
+    </div>
+    <p class="note" style="margin-top:18px">${G.note}</p>
+    <div style="margin-top:24px"><button class="btn" id="toSort">${esc(G.cta)}</button></div>
+  `;
+  el.querySelectorAll('[data-file]').forEach(b => b.onclick = () => { galFile = +b.dataset.file; RENDER.gallery(); });
+  el.querySelectorAll('[data-open]').forEach(c => c.onclick = () => openDossier(c.dataset.open));
+  el.querySelector('#toSort').onclick = () => go('sort');
+};
+
+function findItem(id){
+  for(let i=0;i<SPEC.gallery.files.length;i++){
+    const it = SPEC.gallery.files[i].items.find(x => x.id === id);
+    if(it) return { it, fi:i };
+  }
+  return null;
+}
+function openDossier(id){
+  const found = findItem(id); if(!found) return;
+  const { it:v, fi } = found;
+  const alt = fi === 1;
+  const d = document.getElementById('dossier');
+  d.className = 'dossier' + (alt?' alt':'');
+  d.innerHTML = `
+    <button class="close" aria-label="Close">&times;</button>
+    <span class="eyebrow${alt?' alt':''}">${esc(SPEC.gallery.files[fi].label)}</span>
+    <h4>${esc(v.name)}</h4>
+    <div style="font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em">${esc(v.real)}</div>
+    <div style="margin-top:18px">
+      ${v.fields.map(([k,t]) => `<div class="field"><div class="k">${esc(k)}</div><div class="v">${t}</div></div>`).join('')}
+    </div>
+    <div class="flap" id="flap">
+      <div class="k">Sealed · ${esc(v.sealedLabel)} &nbsp;›&nbsp; tap to unseal</div>
+      <div class="body">${v.sealed}</div>
+    </div>
+  `;
+  document.getElementById('scrim').classList.add('on');
+  document.body.style.overflow = 'hidden';
+  d.querySelector('.close').onclick = closeDossier;
+  const flap = document.getElementById('flap');
+  flap.onclick = () => {
+    flap.classList.add('open');
+    flap.querySelector('.k').textContent = 'Unsealed · ' + v.sealedLabel;
+    if(!PROGRESS.dossiers.includes(v.id)){ PROGRESS.dossiers.push(v.id); saveProgress(); paintProgress(); }
+  };
+}
+function closeDossier(){
+  document.getElementById('scrim').classList.remove('on');
+  document.body.style.overflow = '';
+  RENDER.gallery();
+}
+document.getElementById('scrim').onclick = e => { if(e.target.id === 'scrim') closeDossier(); };
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && document.getElementById('scrim').classList.contains('on')) closeDossier(); });
+
+/* ============================ VIEW: SORT ============================ */
+let picked = null;
+RENDER.sort = function(){
+  const S = SPEC.sort;
+  const el = document.getElementById('v-sort');
+  picked = null;
+  if(!PROGRESS.sortState){
+    const order = S.items.map((_,i)=>i).sort(()=>Math.random()-0.5);
+    const place = {}; order.forEach(i => place[i] = 'pool');
+    PROGRESS.sortState = { order, place };
+    saveProgress();
+  }
+  const st = PROGRESS.sortState;
+  const chipHtml = i => `<div class="chip" draggable="true" data-i="${i}">${esc(S.items[i].name)}</div>`;
+  const zoneHtml = z => st.order.filter(i => st.place[i] === z).map(chipHtml).join('');
+  el.innerHTML = `
+    <span class="eyebrow">Part three</span>
+    <h2>${esc(S.head)}</h2>
+    <p class="sub">${S.sub}</p>
+    <div class="dnd-pool" id="pool">${zoneHtml('pool')}</div>
+    <div class="bins">
+      ${S.bins.map(b => `<div class="bin" data-bin="${b.key}"><h5>${esc(b.label)}</h5><div class="bsub">${esc(b.sub||'')}</div><div class="drop">${zoneHtml(b.key)}</div></div>`).join('')}
+    </div>
+    <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn" id="checkSort">Check it</button>
+      <button class="btn ghost" id="resetSort">Start over</button>
+    </div>
+    <div class="feedback" id="sortFb"></div>
+    <div style="margin-top:26px"><button class="btn ghost" id="toField">${esc(S.cta)}</button></div>
+  `;
+
+  const pool = el.querySelector('#pool');
+  const chips = () => el.querySelectorAll('.chip');
+  const zones = [pool, ...el.querySelectorAll('.bin .drop')];
+
+  function wire(){
+    chips().forEach(c => {
+      c.ondragstart = e => { e.dataTransfer.setData('text/plain', c.dataset.i); e.dataTransfer.effectAllowed='move'; };
+      c.onclick = () => {
+        if(picked === c){ c.classList.remove('picked'); picked = null; return; }
+        chips().forEach(x=>x.classList.remove('picked'));
+        c.classList.add('picked'); picked = c;
+      };
+    });
+  }
+  function drop(target, i){
+    const chip = el.querySelector(`.chip[data-i="${i}"]`);
+    if(!chip) return;
+    target.appendChild(chip);
+    chip.classList.remove('picked','right','wrong');
+    picked = null;
+    const bin = target.closest('.bin');
+    st.place[i] = bin ? bin.dataset.bin : 'pool';
+    st.order = [...el.querySelectorAll('.chip')].map(c => +c.dataset.i);
+    saveProgress();
+  }
+  zones.forEach(z => {
+    const host = z.classList.contains('drop') ? z.parentElement : z;
+    z.ondragover = e => { e.preventDefault(); host.classList.add('over'); };
+    z.ondragleave = () => host.classList.remove('over');
+    z.ondrop = e => { e.preventDefault(); host.classList.remove('over'); drop(z, e.dataTransfer.getData('text/plain')); };
+    z.onclick = e => { if(picked && !e.target.classList.contains('chip')) drop(z, picked.dataset.i); };
+  });
+  el.querySelectorAll('.bin').forEach(b => b.onclick = e => {
+    if(picked && !e.target.classList.contains('chip')) drop(b.querySelector('.drop'), picked.dataset.i);
+  });
+
+  el.querySelector('#checkSort').onclick = () => {
+    let right = 0, misses = [];
+    const unplaced = pool.querySelectorAll('.chip').length;
+    el.querySelectorAll('.bin').forEach(bin => {
+      bin.querySelectorAll('.chip').forEach(c => {
+        const it = S.items[+c.dataset.i];
+        const ok = it.bin === bin.dataset.bin;
+        c.classList.toggle('right', ok); c.classList.toggle('wrong', !ok);
+        if(ok) right++; else misses.push(it);
+      });
+    });
+    const total = S.items.length;
+    const fb = el.querySelector('#sortFb');
+    fb.className = 'feedback on ' + (right===total ? 'good' : 'bad');
+    fb.innerHTML = right===total
+      ? `<b style="font-family:var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--green)">${total} for ${total}</b><br>${S.win}`
+      : `<b style="font-family:var(--display);letter-spacing:.1em;text-transform:uppercase">${right} of ${total} placed correctly${unplaced?`, ${unplaced} still in the pool`:''}</b>
+         <div style="margin-top:10px">${misses.map(m => `<div style="margin-bottom:6px"><b>${esc(m.name)}</b> · ${m.why}</div>`).join('')}</div>`;
+    if(PROGRESS.sortBest == null || right > PROGRESS.sortBest){ PROGRESS.sortBest = right; saveProgress(); }
+    paintProgress();
+  };
+  el.querySelector('#resetSort').onclick = () => {
+    el.querySelectorAll('.bin .chip').forEach(c => {
+      c.classList.remove('right','wrong','picked');
+      pool.appendChild(c);
+      st.place[+c.dataset.i] = 'pool';
+    });
+    saveProgress();
+    el.querySelector('#sortFb').className = 'feedback';
+  };
+  wire();
+};
+
+/* ============================ VIEW: FIELD TEST ============================ */
+let activeScen = null, scenNode = null, scenTrail = [];
+RENDER.field = function(){
+  const F = SPEC.field;
+  const el = document.getElementById('v-field');
+  if(!activeScen && PROGRESS.scenState){
+    const s = F.scenarios.find(x => x.id === PROGRESS.scenState.id);
+    if(s && s.nodes[PROGRESS.scenState.node]){
+      activeScen = s; scenNode = PROGRESS.scenState.node; scenTrail = (PROGRESS.scenState.trail || []).slice();
+    } else { PROGRESS.scenState = null; }
+  }
+  if(activeScen) return paintScen();
+  el.innerHTML = `
+    <span class="eyebrow">Part four</span>
+    <h2>${esc(F.head)}</h2>
+    <p class="sub">${F.sub}</p>
+    <div class="scen-pick">
+      ${F.scenarios.map(s => {
+        const rec = PROGRESS.scenarios.find(x => x.id === s.id);
+        return `<div class="card ${rec?'read':''}" data-scen="${s.id}">
+          <div class="no">${esc(s.line)}</div>
+          <div class="nm">${esc(s.title)}</div>
+          <div class="teaser">${s.setup}</div>
+          <span class="more">${rec ? (rec.win?'Held the standard · run again':'Ended short · run again') : 'Run the scenario'}</span>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="margin-top:26px"><button class="btn" id="toQuiz">Take the assessment</button></div>
+  `;
+  el.querySelectorAll('[data-scen]').forEach(c => c.onclick = () => {
+    activeScen = F.scenarios.find(s => s.id === c.dataset.scen);
+    scenNode = activeScen.start; scenTrail = [];
+    paintScen();
+  });
+  el.querySelector('#toQuiz').onclick = () => go('quiz');
+};
+function paintScen(){
+  const el = document.getElementById('v-field');
+  const s = activeScen, n = s.nodes[scenNode];
+  if(n.end){
+    const rec = PROGRESS.scenarios.find(x => x.id === s.id);
+    if(rec){ rec.win = rec.win || n.win; } else { PROGRESS.scenarios.push({id:s.id, win:n.win}); }
+    PROGRESS.scenState = null;
+    saveProgress(); paintProgress();
+  } else {
+    PROGRESS.scenState = { id:s.id, node:scenNode, trail:scenTrail.slice() };
+    saveProgress();
+  }
+  el.innerHTML = `
+    <button class="btn ghost" id="backScen" style="margin-bottom:18px">← All scenarios</button>
+    <span class="eyebrow">${esc(s.line)}</span>
+    <h2>${esc(s.title)}</h2>
+    <p class="sub">${s.setup}</p>
+    ${n.end ? `
+      <div class="outcome ${n.win?'win':(n.verdict==='Partial'?'':'loss')}">
+        <div class="verdict">${esc(n.verdict)}</div>
+        <p style="margin:0 0 14px">${n.text}</p>
+        <div style="border-top:1px solid var(--line);padding-top:12px">
+          <div class="hint" style="margin-bottom:6px">Why it played out that way</div>
+          <p style="margin:0">${n.why}</p>
+        </div>
+        <div class="trail">Your line: ${scenTrail.join(' → ')}</div>
+      </div>
+      <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn" id="againScen">Run it again</button>
+        <button class="btn ghost" id="backScen2">Pick another scenario</button>
+      </div>`
+    : `
+      <div class="node">
+        <div class="stage">Decision ${scenTrail.length + 1}</div>
+        <p class="text">${n.text}</p>
+        <div class="choices">
+          ${n.choices.map((c,i) => `<button class="choice" data-to="${c.to}" data-i="${i}">${c.t}</button>`).join('')}
+        </div>
+      </div>
+      ${scenTrail.length ? `<div class="trail">Your line so far: ${scenTrail.join(' → ')}</div>` : ''}`}
+  `;
+  const back = () => { activeScen = null; PROGRESS.scenState = null; saveProgress(); RENDER.field(); };
+  el.querySelector('#backScen').onclick = back;
+  if(el.querySelector('#backScen2')) el.querySelector('#backScen2').onclick = back;
+  if(el.querySelector('#againScen')) el.querySelector('#againScen').onclick = () => { scenNode = s.start; scenTrail = []; paintScen(); };
+  el.querySelectorAll('.choice').forEach(b => b.onclick = () => {
+    scenTrail.push('option ' + 'ABCD'[+b.dataset.i]);
+    scenNode = b.dataset.to;
+    paintScen();
+    window.scrollTo({top:0, behavior:'smooth'});
+  });
+}
+
+/* ============================ VIEW: QUIZ ============================ */
+const QUIZ = SPEC.quiz.items;
+const PASS = SPEC.quiz.pass;
+let qi = 0, answers = [], quizOrder = [], quizLive = false;
+RENDER.quiz = function(){
+  const el = document.getElementById('v-quiz');
+  if(!quizLive) return paintQuizIntro(el);
+  paintQuestion(el);
+};
+function paintQuizIntro(el){
+  const prior = ATTEMPTS.filter(a => a.name === (PROFILE.name || 'Unnamed'));
+  const open = PROGRESS.quizState;
+  el.innerHTML = `
+    <span class="eyebrow">Part five</span>
+    <h2>Assessment</h2>
+    <p class="sub">${QUIZ.length} questions. You answer, it tells you immediately whether you got it, and it explains both the right answer and the one you picked. No going back to change it, which is the point. Pass mark is ${PASS} of ${QUIZ.length}. If you close the module partway through, the attempt waits for you.</p>
+    ${open ? `<div class="resumebar">
+      <div style="flex:1;min-width:220px">
+        <b style="font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;font-size:13px;color:var(--prism);display:block;margin-bottom:4px">Attempt in progress</b>
+        Question ${open.qi + 1} of ${QUIZ.length}, ${open.answers.filter(a=>a.ok).length} correct so far. Started ${ago(PROGRESS.updatedAt)}.
+      </div>
+      <button class="btn" id="resumeQ">Pick up at question ${open.qi + 1}</button>
+      <button class="btn ghost" id="dropQ">Scrap it, start fresh</button>
+    </div>` : ''}
+    <div class="panel">
+      <div class="hint" style="margin-bottom:8px">Recording as</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <input type="text" id="qName" placeholder="Your name or employee ID" value="${esc(PROFILE.name)}" style="flex:1">
+        <button class="btn" id="startQuiz">Begin</button>
+      </div>
+      <label class="check" style="margin-top:14px">
+        <input type="checkbox" id="qShare" ${PROFILE.share?'checked':''}> Add this result to the shared cohort roster
+      </label>
+      <p class="note" style="margin:8px 0 0">This is practice, not the gate. The gate is the written assessment the Training Lead issues and marks under ${SPEC.certRef}.</p>
+      ${prior.length ? `<p class="note" style="margin:14px 0 0;border-top:1px solid var(--line);padding-top:12px">Previous attempts under this name: ${prior.length}. Best so far: ${Math.max(...prior.map(a=>a.score))}/${QUIZ.length}.</p>` : ''}
+    </div>
+  `;
+  if(el.querySelector('#resumeQ')){
+    el.querySelector('#resumeQ').onclick = () => resumeQuiz();
+    el.querySelector('#dropQ').onclick = () => { PROGRESS.quizState = null; saveProgress(); RENDER.quiz(); };
+  }
+  el.querySelector('#startQuiz').onclick = () => {
+    PROFILE.name = el.querySelector('#qName').value.trim();
+    PROFILE.share = el.querySelector('#qShare').checked;
+    saveProfile();
+    qi = 0; answers = []; quizLive = true;
+    quizOrder = QUIZ.map((q,i)=>i).sort(()=>Math.random()-0.5);
+    PROGRESS.quizState = { order:quizOrder, qi:0, answers:[], name:PROFILE.name };
+    saveProgress();
+    RENDER.quiz();
+  };
+}
+function paintQuestion(el){
+  const q = QUIZ[quizOrder[qi]];
+  const order = q.opts.map((o,i)=>i).sort(()=>Math.random()-0.5);
+  el.innerHTML = `
+    <div class="qhead">
+      <span class="n">Question ${qi+1} of ${QUIZ.length}</span>
+      <span class="n">${answers.filter(a=>a.ok).length} correct so far</span>
+    </div>
+    <p class="qtext">${q.q}</p>
+    <div class="opts">
+      ${order.map((oi,pos) => `<button class="opt" data-oi="${oi}"><span class="ltr">${'ABCD'[pos]}</span><span>${q.opts[oi].t}</span></button>`).join('')}
+    </div>
+    <div class="rationale" id="rat"></div>
+    <div id="nextWrap" style="margin-top:18px;display:none">
+      <button class="btn" id="nextQ">${qi === QUIZ.length-1 ? 'See your score' : 'Next question'}</button>
+    </div>
+  `;
+  el.querySelectorAll('.opt').forEach(b => b.onclick = () => {
+    const oi = +b.dataset.oi, chosen = q.opts[oi], ok = !!chosen.ok;
+    const correct = q.opts.findIndex(o => o.ok);
+    el.querySelectorAll('.opt').forEach(x => {
+      x.disabled = true;
+      if(+x.dataset.oi === correct) x.classList.add('correct');
+      if(+x.dataset.oi === oi && !ok) x.classList.add('chosen-wrong');
+    });
+    const rat = el.querySelector('#rat');
+    rat.className = 'rationale on ' + (ok ? 'right' : 'wrong');
+    rat.innerHTML = ok
+      ? `<div class="tag">Correct</div><div class="why">${q.opts[correct].why}</div>`
+      : `<div class="tag">Not quite</div>
+         <div class="why"><b>You picked:</b> ${chosen.t}<br>${chosen.why}</div>
+         <div class="miss"><b>The answer is:</b> ${q.opts[correct].t}<br>${q.opts[correct].why}</div>`;
+    answers.push({ qi:quizOrder[qi], ok, chosen:oi });
+    PROGRESS.quizState = { order:quizOrder, qi:answers.length, answers:answers.slice(), name:PROFILE.name };
+    saveProgress();
+    el.querySelector('#nextWrap').style.display = 'block';
+    el.querySelector('#nextQ').onclick = () => {
+      qi++;
+      if(qi >= QUIZ.length) finishQuiz(el); else paintQuestion(el);
+      window.scrollTo({top:0, behavior:'smooth'});
+    };
+  });
+}
+function resumeQuiz(){
+  const st = PROGRESS.quizState;
+  if(!st) return;
+  quizOrder = st.order; answers = st.answers.slice(); qi = st.qi; quizLive = true;
+  if(st.name && !PROFILE.name){ PROFILE.name = st.name; saveProfile(); }
+  const el = document.getElementById('v-quiz');
+  if(qi >= QUIZ.length) finishQuiz(el); else paintQuestion(el);
+}
+async function finishQuiz(el){
+  quizLive = false;
+  PROGRESS.quizState = null;
+  const score = answers.filter(a=>a.ok).length;
+  const pct = Math.round(score/QUIZ.length*100);
+  const attempt = {
+    id: 'a' + Date.now() + Math.floor(Math.random()*999),
+    name: PROFILE.name || 'Unnamed',
+    when: new Date().toISOString(),
+    score, total: QUIZ.length, pct,
+    detail: answers.map(a => ({ q:a.qi, ok:a.ok, chosen:a.chosen }))
+  };
+  ATTEMPTS.push(attempt);
+  PROGRESS.quizTaken = true;
+  await saveAttempts(); await saveProgress();
+  if(PROFILE.share){
+    const roster = (await store.get(NS+'roster', true)) || [];
+    roster.push({ name:attempt.name, when:attempt.when, score, total:QUIZ.length, pct });
+    await store.set(NS+'roster', roster.slice(-300), true);
+  }
+  const pass = score >= PASS;
+  const missed = answers.filter(a => !a.ok).map(a => QUIZ[a.qi].q);
+  el.innerHTML = `
+    <div class="scorewrap">
+      <div class="hint">Attempt ${ATTEMPTS.filter(a=>a.name===attempt.name).length} · ${esc(attempt.name)}</div>
+      <div class="bigscore">${score}<span style="color:var(--muted);font-size:.5em">/${QUIZ.length}</span></div>
+      <div class="stamp ${pass?'':'fail'}">${pass ? 'At standard' : 'Review needed'}</div>
+      <p class="sub" style="margin:10px auto 0">${pass ? SPEC.quiz.passMsg : SPEC.quiz.failMsg}</p>
+    </div>
+    ${missed.length ? `<div class="panel"><div class="hint" style="margin-bottom:10px">What you missed</div>
+      ${missed.map(m => `<div style="border-top:1px solid var(--line);padding:10px 0;font-size:15px">${m}</div>`).join('')}</div>` : ''}
+    <div style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn" id="retake">Take it again</button>
+      <button class="btn ghost" id="toRecords">See the record log</button>
+      <button class="btn ghost" id="toGal">Back to the cards</button>
+    </div>
+  `;
+  el.querySelector('#retake').onclick = () => { qi=0; answers=[]; quizLive=false; RENDER.quiz(); };
+  el.querySelector('#toRecords').onclick = () => go('records');
+  el.querySelector('#toGal').onclick = () => go('gallery');
+  paintProgress();
+}
+
+/* ============================ VIEW: RECORDS ============================ */
+RENDER.records = function(){
+  const el = document.getElementById('v-records');
+  const mine = ATTEMPTS.slice().sort((a,b) => new Date(b.when) - new Date(a.when));
+  const best = mine.length ? Math.max(...mine.map(a=>a.score)) : 0;
+  const avg  = mine.length ? (mine.reduce((s,a)=>s+a.score,0)/mine.length).toFixed(1) : '0';
+  const first = mine.length ? mine[mine.length-1].score : 0;
+
+  const acc = QUIZ.map((q,i) => {
+    const tries = ATTEMPTS.flatMap(a => a.detail.filter(d => d.q === i));
+    const right = tries.filter(d => d.ok).length;
+    return { i, q:q.q, tries:tries.length, pct: tries.length ? Math.round(right/tries.length*100) : null };
+  }).filter(x => x.tries > 0).sort((a,b) => a.pct - b.pct);
+
+  el.innerHTML = `
+    <span class="eyebrow">Part six</span>
+    <h2>Records</h2>
+    <p class="sub">Every attempt logged on this device, plus which questions keep tripping people up. A criterion failing across several operators is a curriculum finding under ${SPEC.qaRef}, not a coaching matter, so this page is worth showing the Training Lead.</p>
+    <div class="panel" style="margin-bottom:24px">
+      <div class="hint" style="margin-bottom:8px">Session state</div>
+      <div style="font-size:15px">Last saved ${PROGRESS.updatedAt ? ago(PROGRESS.updatedAt) + ' (' + new Date(PROGRESS.updatedAt).toLocaleString() + ')' : 'never'}.
+      ${PROGRESS.lastTab ? 'Last section open: ' + esc(tabLabel(PROGRESS.lastTab)) + '.' : ''}
+      ${PROGRESS.quizState ? '<b>An assessment is paused at question ' + (PROGRESS.quizState.qi + 1) + '.</b>' : ''}
+      ${PROGRESS.scenState ? 'A scenario is paused mid-branch.' : ''}</div>
+    </div>
+
+    ${mine.length ? `
+    <div class="statgrid">
+      <div class="stat"><div class="k">Attempts</div><div class="v">${mine.length}</div></div>
+      <div class="stat"><div class="k">Best score</div><div class="v">${best}<span style="font-size:.5em;color:var(--muted)">/${QUIZ.length}</span></div></div>
+      <div class="stat"><div class="k">Average</div><div class="v">${avg}</div></div>
+      <div class="stat"><div class="k">First to latest</div><div class="v">${first} → ${mine[0].score}</div></div>
+    </div>
+
+    <h3>Weakest questions first</h3>
+    <div class="qbars">
+      ${acc.slice(0,6).map(a => `
+        <div class="qbar">
+          <div class="track"><i style="width:${a.pct}%;background:${a.pct<50?'var(--crimson)':a.pct<80?'var(--amber)':'var(--green)'}"></i>
+            <span>${esc(a.q.length > 62 ? a.q.slice(0,62)+'…' : a.q)}</span></div>
+          <div class="pct">${a.pct}% · ${a.tries}x</div>
+        </div>`).join('')}
+    </div>
+
+    <h3>Attempt log</h3>
+    <div style="overflow-x:auto">
+      <table class="rec">
+        <thead><tr><th>#</th><th>Name</th><th>Date</th><th>Score</th><th>%</th><th>Missed</th></tr></thead>
+        <tbody>
+          ${mine.map((a,idx) => `<tr>
+            <td>${mine.length-idx}</td>
+            <td>${esc(a.name)}</td>
+            <td style="white-space:nowrap">${new Date(a.when).toLocaleString()}</td>
+            <td>${a.score}/${a.total}</td>
+            <td>${a.pct}%</td>
+            <td style="color:var(--muted);font-family:var(--mono);font-size:12px">${a.detail.filter(d=>!d.ok).map(d=>'Q'+(d.q+1)).join(' ') || 'none'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : `<div class="panel"><b style="font-family:var(--display);letter-spacing:.1em;text-transform:uppercase">Nothing logged yet</b>
+      <p style="margin:10px 0 16px">Take the assessment and every attempt lands here with the date, score, and which questions went wrong.</p>
+      <button class="btn" id="goQuizEmpty">Go to the assessment</button></div>`}
+
+    <h3>Activity outside the assessment</h3>
+    <table class="rec">
+      <tbody>
+        <tr><td>Cards unsealed</td><td>${PROGRESS.dossiers.length} of ${GAL_TOTAL}</td></tr>
+        <tr><td>Best sort</td><td>${PROGRESS.sortBest == null ? 'not attempted' : PROGRESS.sortBest + ' of ' + SPEC.sort.items.length}</td></tr>
+        <tr><td>Scenarios run</td><td>${PROGRESS.scenarios.length} of ${SPEC.field.scenarios.length}${PROGRESS.scenarios.length ? ' · standard held in ' + PROGRESS.scenarios.filter(s=>s.win).length : ''}</td></tr>
+        <tr><td>Ledger rows revealed</td><td>${PROGRESS.revealed.length} of ${SPEC.ledger.rows.length}</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Export and roster</h3>
+    <div class="toolbar">
+      <button class="btn" id="csvBtn" ${mine.length?'':'disabled'}>Show CSV</button>
+      <button class="btn ghost" id="dlBtn" ${mine.length?'':'disabled'}>Download CSV</button>
+      <button class="btn ghost" id="rosterBtn">Load cohort roster</button>
+      <button class="btn ghost danger" id="clearBtn" ${mine.length?'':'disabled'}>Clear my records</button>
+    </div>
+    <textarea class="csv" id="csvOut" readonly></textarea>
+    <div id="rosterOut"></div>
+    <p class="note" style="margin-top:18px">Records are stored per person on this device. The cohort roster is a shared list, so anything you send there is readable by everyone else using this module.</p>
+
+    <h3>Move progress to another machine</h3>
+    <p class="note" style="margin-bottom:14px">This copies your whole state, scores, cards, sort, scenarios, and any paused attempt, into a block of text. Paste it into the same box on another device to land exactly where you left off.</p>
+    <div class="toolbar">
+      <button class="btn ghost" id="expBtn">Copy my progress</button>
+      <button class="btn ghost" id="impBtn">Paste progress in</button>
+    </div>
+    <textarea class="csv" id="stateBox" placeholder="Paste a progress block here, then press Restore."></textarea>
+    <div id="impActions" style="margin-top:10px;display:none"><button class="btn" id="doImp">Restore this progress</button></div>
+    <div id="impStatus" class="feedback"></div>
+  `;
+
+  if(el.querySelector('#goQuizEmpty')) el.querySelector('#goQuizEmpty').onclick = () => go('quiz');
+
+  const csv = () => {
+    const head = ['attempt','name','timestamp','score','total','percent', ...QUIZ.map((q,i)=>'Q'+(i+1))];
+    const rows = ATTEMPTS.map((a,i) => {
+      const per = QUIZ.map((q,qi2) => { const d = a.detail.find(x=>x.q===qi2); return d ? (d.ok?1:0) : ''; });
+      return [i+1, `"${String(a.name).replace(/"/g,'""')}"`, a.when, a.score, a.total, a.pct, ...per];
+    });
+    return [head.join(','), ...rows.map(r=>r.join(','))].join('\n');
+  };
+  const out = el.querySelector('#csvOut');
+  if(el.querySelector('#csvBtn')) el.querySelector('#csvBtn').onclick = () => {
+    out.value = csv(); out.classList.add('on'); out.focus(); out.select();
+  };
+  if(el.querySelector('#dlBtn')) el.querySelector('#dlBtn').onclick = () => {
+    try{
+      const blob = new Blob([csv()], {type:'text/csv'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = SPEC.code.toLowerCase() + '-results.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+    }catch(e){ out.value = csv(); out.classList.add('on'); }
+  };
+  el.querySelector('#rosterBtn').onclick = async () => {
+    const roster = (await store.get(NS+'roster', true)) || [];
+    const box = el.querySelector('#rosterOut');
+    if(!roster.length){ box.innerHTML = `<p class="note">Roster is empty. Results only land here when someone turns on sharing before taking the assessment.</p>`; return; }
+    const sorted = roster.slice().sort((a,b) => b.score - a.score || new Date(a.when) - new Date(b.when));
+    box.innerHTML = `<h3>Cohort roster · ${roster.length} entries</h3><div style="overflow-x:auto"><table class="rec">
+      <thead><tr><th>Rank</th><th>Name</th><th>Score</th><th>%</th><th>Date</th></tr></thead>
+      <tbody>${sorted.map((r,i) => `<tr><td>${i+1}</td><td>${esc(r.name)}</td><td>${r.score}/${r.total}</td><td>${r.pct}%</td><td style="white-space:nowrap">${new Date(r.when).toLocaleDateString()}</td></tr>`).join('')}</tbody>
+    </table></div>`;
+  };
+  if(el.querySelector('#clearBtn')) el.querySelector('#clearBtn').onclick = async function(){
+    if(this.dataset.armed !== '1'){ this.dataset.armed = '1'; this.textContent = 'Tap again to erase everything'; return; }
+    ATTEMPTS = [];
+    PROGRESS = { visited:['records'], dossiers:[], sortBest:null, scenarios:[], quizTaken:false,
+      lastTab:'records', revealed:[], sortState:null, scenState:null, quizState:null, updatedAt:null };
+    await saveAttempts(); await saveProgress();
+    RENDER.records(); paintProgress();
+  };
+
+  const box = el.querySelector('#stateBox');
+  el.querySelector('#expBtn').onclick = () => {
+    box.value = btoa(unescape(encodeURIComponent(JSON.stringify({ v:1, m:SPEC.id, profile:PROFILE, progress:PROGRESS, attempts:ATTEMPTS }))));
+    box.classList.add('on'); box.readOnly = true; box.focus(); box.select();
+    el.querySelector('#impActions').style.display = 'none';
+    toast('expBtn','Selected, now copy it');
+  };
+  el.querySelector('#impBtn').onclick = () => {
+    box.value = ''; box.readOnly = false; box.classList.add('on'); box.focus();
+    el.querySelector('#impActions').style.display = 'block';
+  };
+  el.querySelector('#doImp').onclick = async () => {
+    const st = document.getElementById('impStatus');
+    try{
+      const data = JSON.parse(decodeURIComponent(escape(atob(box.value.trim()))));
+      if(!data.progress) throw new Error('bad block');
+      if(data.m && data.m !== SPEC.id){
+        st.className = 'feedback on bad';
+        st.textContent = 'That block is from a different module (' + data.m.toUpperCase() + '). Paste it into that one instead.';
+        return;
+      }
+      PROFILE = Object.assign(PROFILE, data.profile || {});
+      PROGRESS = Object.assign(PROGRESS, data.progress);
+      if(Array.isArray(data.attempts)) ATTEMPTS = data.attempts;
+      await saveProfile(); await saveAttempts(); await saveProgress();
+      box.classList.remove('on'); el.querySelector('#impActions').style.display = 'none';
+      ['v-brief'].forEach(id => { const v = document.getElementById(id); if(v) delete v.dataset.built; });
+      activeScen = null; quizLive = false;
+      RENDER.records(); paintProgress();
+      const st2 = document.getElementById('impStatus');
+      st2.className = 'feedback on good';
+      st2.textContent = 'Restored. Sections, scores, and any paused attempt are back where they were.';
+    }catch(e){
+      st.className = 'feedback on bad';
+      st.textContent = "That block didn't read as progress data. Copy the whole thing, including the very end.";
+    }
+  };
+};
+
+/* ============================ BOOT ============================ */
+(async function(){
+  await loadAll();
+  buildHead();
+  buildTabs();
+  const returning = !!(PROGRESS.lastTab && PROGRESS.updatedAt);
+  go(returning ? PROGRESS.lastTab : 'brief');
+  if(returning) showResume();
+  setInterval(paintSaved, 60000);
+})();
+</script>
